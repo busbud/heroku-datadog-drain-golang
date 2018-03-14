@@ -99,8 +99,6 @@ func basicAuth(username, password string) string {
 func TestLogRequest(t *testing.T) {
 
 	s := loadServerCtx()
-	s.AllowedApps = append(s.AllowedApps, "test")
-	s.AppPasswd["test"] = "pass"
 
 	s.in = make(chan *logData)
 	defer close(s.in)
@@ -110,7 +108,9 @@ func TestLogRequest(t *testing.T) {
 	go logProcess(s.in, s.out)
 
 	r := gin.New()
-	auth := r.Group("/", gin.BasicAuth(s.AppPasswd))
+	accounts := map[string]string{}
+	accounts["test"] = "pass"
+	auth := r.Group("/", gin.BasicAuth(accounts))
 	auth.POST("/", s.processLogs)
 
 	req, _ := http.NewRequest("POST", "/", bytes.NewBuffer([]byte("LINE of text\nAnother line\n")))
@@ -135,8 +135,6 @@ func TestLogRequest(t *testing.T) {
 func TestFull(t *testing.T) {
 
 	s := loadServerCtx()
-	s.AllowedApps = append(s.AllowedApps, "test")
-	s.AppPasswd["test"] = "pass"
 
 	s.in = make(chan *logData)
 	defer close(s.in)
@@ -164,7 +162,9 @@ func TestFull(t *testing.T) {
 	go c.sendToStatsd(s.out)
 
 	r := gin.New()
-	auth := r.Group("/", gin.BasicAuth(s.AppPasswd))
+	accounts := map[string]string{}
+	accounts["test"] = "pass"
+	auth := r.Group("/", gin.BasicAuth(accounts))
 	auth.POST("/", s.processLogs)
 
 	data := make([]byte, 1024)

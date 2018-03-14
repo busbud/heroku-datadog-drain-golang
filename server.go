@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"os"
 	"strings"
 
@@ -21,15 +22,15 @@ type logData struct {
 }
 
 type ServerCtx struct {
-	Port        string
-	AllowedApps []string
-	AppPasswd   map[string]string
-	AppTags     map[string][]string
-	AppPrefix   map[string]string
-	StatsdUrl   string
-	Debug       bool
-	in          chan *logData
-	out         chan *logMetrics
+	Port              string
+	AppTags           map[string][]string
+	AppPrefix         map[string]string
+	StatsdUrl         string
+	BasicAuthUsername string
+	BasicAuthPassword string
+	Debug             bool
+	in                chan *logData
+	out               chan *logMetrics
 }
 
 //Load configuration from envrionment variables, see list below
@@ -50,11 +51,11 @@ type ServerCtx struct {
 func loadServerCtx() *ServerCtx {
 
 	s := &ServerCtx{"8080",
-		nil,
-		make(map[string]string),
 		make(map[string][]string),
 		make(map[string]string),
 		"localhost:8125",
+		"",
+		"",
 		false,
 		nil,
 		nil,
@@ -64,49 +65,31 @@ func loadServerCtx() *ServerCtx {
 		s.Port = port
 	}
 
-	allApps := os.Getenv("ALLOWED_APPS")
-	if allApps != "" {
-		apps := strings.Split(allApps, ",")
-		log.WithField("apps", apps).Info("ALLOWED_APPS loaded.")
-		for _, app := range apps {
-			name := strings.ToUpper(app)
-			s.AllowedApps = append(s.AllowedApps, app)
-			s.AppPasswd[app] = os.Getenv(name + "_PASSWORD")
-			if s.AppPasswd[app] == "" {
-				log.WithField("app", app).Warn("App is allowed but no password set")
-			}
-			tags := os.Getenv(name + "_TAGS")
-			if tags != "" {
-				s.AppTags[app] = strings.Split(tags, ",")
-			}
-			prefix := os.Getenv(name + "_PREFIX")
-			if strings.Index(prefix, ".") == -1 {
-				s.AppPrefix[app] = prefix + "."
-			} else {
-				s.AppPrefix[app] = prefix
-			}
-		}
-	} else {
-		log.Warn("No Allowed apps set, nobody can access this service!")
-	}
-
-	statsd := os.Getenv("STATSD_URL")
-	if statsd != "" {
-		s.StatsdUrl = statsd
-	}
-
 	if os.Getenv("DATADOG_DRAIN_DEBUG") != "" {
 		s.Debug = true
 	}
 
+	s.StatsdUrl = os.Getenv("STATSD_URL")
+	if s.StatsdUrl == "" {
+		log.Panic(errors.New("Missing STATSD_URL"))
+	}
+
+	s.BasicAuthUsername = os.Getenv("BASIC_AUTH_USERNAME")
+	if s.BasicAuthUsername == "" {
+		log.Panic(errors.New("Missing BASIC_AUTH_USERNAME"))
+	}
+
+	s.BasicAuthPassword = os.Getenv("BASIC_AUTH_PASSWORD")
+	if s.BasicAuthPassword == "" {
+		log.Panic(errors.New("Missing BASIC_AUTH_PASSWORD"))
+	}
+
 	log.WithFields(log.Fields{
-		"port":         s.Port,
-		"AlloweApps":   s.AllowedApps,
-		"AppPasswords": "************",
-		"AppTags":      s.AppTags,
-		"AppPrefix":    s.AppPrefix,
-		"StatsdUrl":    s.StatsdUrl,
-		"Debug":        s.Debug,
+		"port":      s.Port,
+		"AppTags":   s.AppTags,
+		"AppPrefix": s.AppPrefix,
+		"StatsdUrl": s.StatsdUrl,
+		"Debug":     s.Debug,
 	}).Info("Configuration loaded")
 
 	return s
@@ -121,18 +104,25 @@ func init() {
 }
 
 func (s *ServerCtx) getTags(c *gin.Context, app string) []string {
-        requestTags := c.DefaultQuery("tags", "")
-        if requestTags == "" {
-                return s.AppTags[app];
-        } else {
-                return strings.Split(requestTags, ",");
-        }
+	requestTags := c.DefaultQuery("tags", "")
+	if requestTags == "" {
+		return s.AppTags[app]
+	} else {
+		return strings.Split(requestTags, ",")
+	}
 }
 
 func (s *ServerCtx) processLogs(c *gin.Context) {
-       app := c.MustGet(gin.AuthUserKey).(string)
-       tags := s.getTags(c, app)
-       prefix := c.DefaultQuery("prefix", s.AppPrefix[app])
+	app := c.DefaultQuery("app", "")
+	if app == "" {
+		log.Error(errors.New("app query parameter not passed"))
+		c.String(500, "Missing app query parameter")
+		return
+	}
+
+	tags := s.getTags(c, app)
+	tags = append(tags, "app:"+app)
+	prefix := c.DefaultQuery("prefix", s.AppPrefix[app])
 
 	scanner := bufio.NewScanner(c.Request.Body)
 	for scanner.Scan() {
@@ -172,10 +162,10 @@ func main() {
 		c.String(200, "OK")
 	})
 
-	if len(s.AppPasswd) > 0 {
-		auth := r.Group("/", gin.BasicAuth(s.AppPasswd))
-		auth.POST("/", s.processLogs)
-	}
+	accounts := map[string]string{}
+	accounts[s.BasicAuthUsername] = s.BasicAuthPassword
+	auth := r.Group("/", gin.BasicAuth(accounts))
+	auth.POST("/", s.processLogs)
 
 	s.in = make(chan *logData, bufferLen)
 	defer close(s.in)

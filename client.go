@@ -1,13 +1,14 @@
 package main
 
 import (
-	statsd "github.com/DataDog/datadog-go/statsd"
-	log "github.com/Sirupsen/logrus"
-	"strconv"
-	"strings"
 	"errors"
 	"regexp"
 	"sort"
+	"strconv"
+	"strings"
+
+	statsd "github.com/DataDog/datadog-go/statsd"
+	log "github.com/Sirupsen/logrus"
 )
 
 const sampleRate = 1.0
@@ -55,7 +56,6 @@ func (c *Client) sendToStatsd(in chan *logMetrics) {
 			"tags":   data.tags,
 			"prefix": data.prefix,
 		}).Debug("logMetrics received")
-
 
 		if data.typ == routerMsg {
 			c.sendRouterMsg(data)
@@ -214,10 +214,14 @@ func (c *Client) sendScalingMsg(data *logMetrics) {
 
 func (c *Client) sendMetric(metricType string, metricName string, value float64, tags []string) error {
 	switch metricType {
-	case "metric", "sample": return c.Gauge(metricName, value, tags, sampleRate)
-	case "measure": return c.Histogram(metricName, value, tags, sampleRate)
-	case "count": return c.Count(metricName, int64(value), tags, sampleRate)
-	default: return errors.New("Unknown metric type"+metricType)
+	case "metric", "sample":
+		return c.Gauge(metricName, value, tags, sampleRate)
+	case "measure":
+		return c.Histogram(metricName, value, tags, sampleRate)
+	case "count":
+		return c.Count(metricName, int64(value), tags, sampleRate)
+	default:
+		return errors.New("Unknown metric type" + metricType)
 	}
 }
 
@@ -251,7 +255,7 @@ Tags:
 				keySplit := strings.Split(k, "#")
 				metricType := keySplit[0]
 				m := strings.Replace(keySplit[1], "_", ".", -1)
-				err = c.sendMetric(metricType, *data.prefix+"app.metric."+m, vnum, tags)
+				err = c.sendMetric(metricType, *data.prefix+"heroku.metric."+m, vnum, tags)
 				if err != nil {
 					log.WithField("error", err).Warning("Failed to send Gauge")
 				}
