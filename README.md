@@ -36,7 +36,6 @@ If you already have a StatsD client running, see the STATSD_URL configuration op
 
 ```
 heroku buildpacks:add heroku/go
-heroku config:set HEROKU_APP_NAME=$(heroku apps:info|grep ===|cut -d' ' -f2)
 ```
 
 Don't forget [set right golang version](https://devcenter.heroku.com/articles/go-support#go-versions).
