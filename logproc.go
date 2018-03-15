@@ -51,7 +51,7 @@ func isDigit(r rune) bool {
 func parseMetrics(typ int, ld *logData, data *string, out chan *logMetrics) {
 	var myslice []string
 	lm := logMetrics{typ, ld.app, ld.tags, ld.prefix, make(map[string]logValue, 5), myslice}
-;
+
 	if typ == releaseMsg {
 		events := append(lm.events, *data)
 		lm.events = events
@@ -85,7 +85,7 @@ func parseScalingMessage(ld *logData, message *string, out chan *logMetrics) {
 			dynoType := dynoInfo[3]
 			log.WithFields(log.Fields{
 				"dynoName": dynoName,
-				"count": count,
+				"count":    count,
 				"dynoType": dynoType,
 			}).Debug()
 			logValues[dynoName] = logValue{count, dynoType}
@@ -95,7 +95,7 @@ func parseScalingMessage(ld *logData, message *string, out chan *logMetrics) {
 		out <- &lm
 	} else {
 		log.WithFields(log.Fields{
-			"err": "Scaling message not matched",
+			"err":     "Scaling message not matched",
 			"message": *message,
 		}).Warn()
 	}
