@@ -144,7 +144,8 @@ func main() {
 		}
 	}
 
-	r := gin.Default()
+	r := gin.New()
+	r.Use(gin.Recovery())
 	r.GET("/status", func(c *gin.Context) {
 		c.String(200, "OK")
 	})
