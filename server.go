@@ -161,6 +161,15 @@ func main() {
 	defer close(s.out)
 	go logProcess(s.in, s.out)
 	go c.sendToStatsd(s.out)
+
+	go func() {
+		for {
+			c.Gauge("heroku_logdrain.queue.in.length", float64(len(s.in)), []string{}, sampleRate)
+			c.Gauge("heroku_logdrain.queue.out.length", float64(len(s.out)), []string{}, sampleRate)
+			time.Sleep(10 * time.Second)
+		}
+	}()
+
 	log.Infoln("Server ready ...")
 	r.Run(":" + s.Port)
 }
