@@ -34,12 +34,6 @@ func (lm *logMetrics) HandleLogfmt(key, val []byte) error {
 		lm.metrics[string(key)] = logValue{string(val[:i+1]), string(val[i+1:])}
 	}
 
-	log.WithFields(log.Fields{
-		"key":  string(key),
-		"val":  lm.metrics[string(key)].Val,
-		"unit": lm.metrics[string(key)].Unit,
-	}).Debug("logMetric")
-
 	return nil
 }
 
@@ -83,11 +77,6 @@ func parseScalingMessage(ld *logData, message *string, out chan *logMetrics) {
 			dynoName := dynoInfo[1]
 			count := dynoInfo[2]
 			dynoType := dynoInfo[3]
-			log.WithFields(log.Fields{
-				"dynoName": dynoName,
-				"count":    count,
-				"dynoType": dynoType,
-			}).Debug()
 			logValues[dynoName] = logValue{count, dynoType}
 		}
 		events := []string{*message}

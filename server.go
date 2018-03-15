@@ -115,7 +115,6 @@ func (s *ServerCtx) processLogs(c *gin.Context) {
 	scanner := bufio.NewScanner(c.Request.Body)
 	for scanner.Scan() {
 		line := scanner.Text()
-		log.WithField("line", line).Debug("LINE")
 		s.in <- &logData{&app, &tags, &prefix, &line}
 	}
 	if err := scanner.Err(); err != nil {

@@ -50,13 +50,6 @@ func (c *Client) sendToStatsd(in chan *logMetrics) {
 			return
 		}
 
-		log.WithFields(log.Fields{
-			"type":   data.typ,
-			"app":    data.app,
-			"tags":   data.tags,
-			"prefix": data.prefix,
-		}).Debug("logMetrics received")
-
 		if data.typ == routerMsg {
 			c.sendRouterMsg(data)
 		} else if data.typ == sampleMsg {
@@ -113,13 +106,6 @@ func addStatusFamilyToTags(data *logMetrics, tags []string) []string {
 func (c *Client) sendRouterMsg(data *logMetrics) {
 	tags := c.extractTags(*data.tags, routerMetricsKeys, data.metrics)
 	tags = addStatusFamilyToTags(data, tags)
-
-	log.WithFields(log.Fields{
-		"app":    *data.app,
-		"tags":   *data.tags,
-		"prefix": *data.prefix,
-	}).Debug("sendRouterMsg")
-
 	conn, err := strconv.ParseFloat(data.metrics["connect"].Val, 10)
 	if err != nil {
 		log.WithFields(log.Fields{
@@ -158,12 +144,6 @@ func (c *Client) sendRouterMsg(data *logMetrics) {
 func (c *Client) sendSampleMsg(data *logMetrics) {
 	tags := c.extractTags(*data.tags, sampleMetricsKeys, data.metrics)
 
-	log.WithFields(log.Fields{
-		"app":    *data.app,
-		"tags":   tags,
-		"prefix": *data.prefix,
-	}).Debug("sendSampleMsg")
-
 	for k, v := range data.metrics {
 		if strings.Index(k, "#") != -1 {
 			m := strings.Replace(strings.Split(k, "#")[1], "_", ".", -1)
@@ -186,12 +166,6 @@ func (c *Client) sendSampleMsg(data *logMetrics) {
 
 func (c *Client) sendScalingMsg(data *logMetrics) {
 	tags := *data.tags
-
-	log.WithFields(log.Fields{
-		"app":    *data.app,
-		"tags":   tags,
-		"prefix": *data.prefix,
-	}).Debug("sendScalingMsg")
 
 	for _, mk := range scalingMetricsKeys {
 		if v, ok := data.metrics[mk]; ok {
@@ -243,12 +217,6 @@ Tags:
 		}
 	}
 
-	log.WithFields(log.Fields{
-		"app":    *data.app,
-		"tags":   tags,
-		"prefix": *data.prefix,
-	}).Debug("sendMetricTag")
-
 	for k, v := range data.metrics {
 		if strings.Index(k, "#") != -1 {
 			if vnum, err := strconv.ParseFloat(v.Val, 10); err == nil {
@@ -259,12 +227,6 @@ Tags:
 				if err != nil {
 					log.WithField("error", err).Warning("Failed to send Gauge")
 				}
-			} else {
-				log.WithFields(log.Fields{
-					"type":   "metrics",
-					"metric": k,
-					"err":    err,
-				}).Debug("Could not parse metric value")
 			}
 		}
 	}
