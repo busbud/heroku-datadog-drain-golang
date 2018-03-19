@@ -101,7 +101,6 @@ func logProcess(in chan *logData, out chan *logMetrics) {
 			return
 		}
 
-		log.Debugln(*data.line)
 		output := strings.Split(*data.line, " - ")
 		if len(output) < 2 {
 			continue
@@ -112,7 +111,6 @@ func logProcess(in chan *logData, out chan *logMetrics) {
 		}
 		headers = headers[3:6]
 
-		log.WithField("headers", headers).Debug("Line headers")
 		if headers[1] == "heroku" {
 			if headers[2] == "router" {
 				parseMetrics(routerMsg, data, &output[1], out)
