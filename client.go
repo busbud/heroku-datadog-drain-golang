@@ -1,13 +1,14 @@
 package main
 
 import (
-	statsd "github.com/DataDog/datadog-go/statsd"
-	log "github.com/Sirupsen/logrus"
-	"strconv"
-	"strings"
 	"errors"
 	"regexp"
 	"sort"
+	"strconv"
+	"strings"
+
+	statsd "github.com/DataDog/datadog-go/statsd"
+	log "github.com/Sirupsen/logrus"
 )
 
 const sampleRate = 1.0
@@ -48,14 +49,6 @@ func (c *Client) sendToStatsd(in chan *logMetrics) {
 		if !ok { //Exit, channel was closed
 			return
 		}
-
-		log.WithFields(log.Fields{
-			"type":   data.typ,
-			"app":    data.app,
-			"tags":   data.tags,
-			"prefix": data.prefix,
-		}).Debug("logMetrics received")
-
 
 		if data.typ == routerMsg {
 			c.sendRouterMsg(data)
@@ -113,13 +106,6 @@ func addStatusFamilyToTags(data *logMetrics, tags []string) []string {
 func (c *Client) sendRouterMsg(data *logMetrics) {
 	tags := c.extractTags(*data.tags, routerMetricsKeys, data.metrics)
 	tags = addStatusFamilyToTags(data, tags)
-
-	log.WithFields(log.Fields{
-		"app":    *data.app,
-		"tags":   *data.tags,
-		"prefix": *data.prefix,
-	}).Debug("sendRouterMsg")
-
 	conn, err := strconv.ParseFloat(data.metrics["connect"].Val, 10)
 	if err != nil {
 		log.WithFields(log.Fields{
@@ -158,12 +144,6 @@ func (c *Client) sendRouterMsg(data *logMetrics) {
 func (c *Client) sendSampleMsg(data *logMetrics) {
 	tags := c.extractTags(*data.tags, sampleMetricsKeys, data.metrics)
 
-	log.WithFields(log.Fields{
-		"app":    *data.app,
-		"tags":   tags,
-		"prefix": *data.prefix,
-	}).Debug("sendSampleMsg")
-
 	for k, v := range data.metrics {
 		if strings.Index(k, "#") != -1 {
 			m := strings.Replace(strings.Split(k, "#")[1], "_", ".", -1)
@@ -187,12 +167,6 @@ func (c *Client) sendSampleMsg(data *logMetrics) {
 func (c *Client) sendScalingMsg(data *logMetrics) {
 	tags := *data.tags
 
-	log.WithFields(log.Fields{
-		"app":    *data.app,
-		"tags":   tags,
-		"prefix": *data.prefix,
-	}).Debug("sendScalingMsg")
-
 	for _, mk := range scalingMetricsKeys {
 		if v, ok := data.metrics[mk]; ok {
 			vnum, err := strconv.ParseFloat(v.Val, 10)
@@ -214,10 +188,14 @@ func (c *Client) sendScalingMsg(data *logMetrics) {
 
 func (c *Client) sendMetric(metricType string, metricName string, value float64, tags []string) error {
 	switch metricType {
-	case "metric", "sample": return c.Gauge(metricName, value, tags, sampleRate)
-	case "measure": return c.Histogram(metricName, value, tags, sampleRate)
-	case "count": return c.Count(metricName, int64(value), tags, sampleRate)
-	default: return errors.New("Unknown metric type"+metricType)
+	case "metric", "sample":
+		return c.Gauge(metricName, value, tags, sampleRate)
+	case "measure":
+		return c.Histogram(metricName, value, tags, sampleRate)
+	case "count":
+		return c.Count(metricName, int64(value), tags, sampleRate)
+	default:
+		return errors.New("Unknown metric type" + metricType)
 	}
 }
 
@@ -239,28 +217,16 @@ Tags:
 		}
 	}
 
-	log.WithFields(log.Fields{
-		"app":    *data.app,
-		"tags":   tags,
-		"prefix": *data.prefix,
-	}).Debug("sendMetricTag")
-
 	for k, v := range data.metrics {
 		if strings.Index(k, "#") != -1 {
 			if vnum, err := strconv.ParseFloat(v.Val, 10); err == nil {
 				keySplit := strings.Split(k, "#")
 				metricType := keySplit[0]
 				m := strings.Replace(keySplit[1], "_", ".", -1)
-				err = c.sendMetric(metricType, *data.prefix+"app.metric."+m, vnum, tags)
+				err = c.sendMetric(metricType, *data.prefix+"heroku.metric."+m, vnum, tags)
 				if err != nil {
 					log.WithField("error", err).Warning("Failed to send Gauge")
 				}
-			} else {
-				log.WithFields(log.Fields{
-					"type":   "metrics",
-					"metric": k,
-					"err":    err,
-				}).Debug("Could not parse metric value")
 			}
 		}
 	}

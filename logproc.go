@@ -34,12 +34,6 @@ func (lm *logMetrics) HandleLogfmt(key, val []byte) error {
 		lm.metrics[string(key)] = logValue{string(val[:i+1]), string(val[i+1:])}
 	}
 
-	log.WithFields(log.Fields{
-		"key":  string(key),
-		"val":  lm.metrics[string(key)].Val,
-		"unit": lm.metrics[string(key)].Unit,
-	}).Debug("logMetric")
-
 	return nil
 }
 
@@ -51,7 +45,7 @@ func isDigit(r rune) bool {
 func parseMetrics(typ int, ld *logData, data *string, out chan *logMetrics) {
 	var myslice []string
 	lm := logMetrics{typ, ld.app, ld.tags, ld.prefix, make(map[string]logValue, 5), myslice}
-;
+
 	if typ == releaseMsg {
 		events := append(lm.events, *data)
 		lm.events = events
@@ -83,11 +77,6 @@ func parseScalingMessage(ld *logData, message *string, out chan *logMetrics) {
 			dynoName := dynoInfo[1]
 			count := dynoInfo[2]
 			dynoType := dynoInfo[3]
-			log.WithFields(log.Fields{
-				"dynoName": dynoName,
-				"count": count,
-				"dynoType": dynoType,
-			}).Debug()
 			logValues[dynoName] = logValue{count, dynoType}
 		}
 		events := []string{*message}
@@ -95,7 +84,7 @@ func parseScalingMessage(ld *logData, message *string, out chan *logMetrics) {
 		out <- &lm
 	} else {
 		log.WithFields(log.Fields{
-			"err": "Scaling message not matched",
+			"err":     "Scaling message not matched",
 			"message": *message,
 		}).Warn()
 	}
@@ -112,7 +101,6 @@ func logProcess(in chan *logData, out chan *logMetrics) {
 			return
 		}
 
-		log.Debugln(*data.line)
 		output := strings.Split(*data.line, " - ")
 		if len(output) < 2 {
 			continue
@@ -123,7 +111,6 @@ func logProcess(in chan *logData, out chan *logMetrics) {
 		}
 		headers = headers[3:6]
 
-		log.WithField("headers", headers).Debug("Line headers")
 		if headers[1] == "heroku" {
 			if headers[2] == "router" {
 				parseMetrics(routerMsg, data, &output[1], out)

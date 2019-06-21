@@ -19,15 +19,15 @@ Funnel metrics from multiple Heroku apps into DataDog using statsd.
 ### Clone the Github repository
 
 ```bash
-git clone git@github.com:apiaryio/heroku-datadog-drain-golang.git
+git clone git@github.com:busbud/heroku-datadog-drain-golang.git
 cd heroku-datadog-drain-golang
 ```
 
-### Setup Heroku, specify the app(s) you'll be monitoring and create a password for each.
+### Setup Heroku, add your statsd url and basic auth creds
 
 ```
 heroku create
-heroku config:set ALLOWED_APPS=<your-app-slug> <YOUR-APP-SLUG>_PASSWORD=<password>
+heroku config:set BASIC_AUTH_USERNAME=user BASIC_AUTH_PASSWORD=pass STATSD_URL=somewhere.com
 ```
 
 > **OPTIONAL**: Setup Heroku build packs, including the Datadog DogStatsD client.
@@ -36,15 +36,12 @@ If you already have a StatsD client running, see the STATSD_URL configuration op
 
 ```
 heroku buildpacks:add heroku/go
-heroku buildpacks:add --index 1 https://github.com/miketheman/heroku-buildpack-datadog.git
-heroku config:set HEROKU_APP_NAME=$(heroku apps:info|grep ===|cut -d' ' -f2)
-heroku config:add DATADOG_API_KEY=<your-Datadog-API-key>
 ```
 
 Don't forget [set right golang version](https://devcenter.heroku.com/articles/go-support#go-versions).
 
 ```
-heroku config:add GOVERSION=go1.9
+heroku config:add GOVERSION=go1.10
 ```
 
 ### Deploy to Heroku.
@@ -57,22 +54,18 @@ heroku ps:scale web=1
 ### Add the Heroku log drain using the app slug and password created above.
 
 ```
-heroku drains:add https://<your-app-slug>:<password>@<this-log-drain-app-slug>.herokuapp.com/ --app <your-app-slug>
+heroku drains:add https://<username>:<password>@<this-log-drain-app-slug>.herokuapp.com?app=<your-app-slug> --app <your-app-slug>
 ```
 
 ## Configuration
 ```bash
 STATSD_URL=..             # Required. Set to: localhost:8125
-DATADOG_API_KEY=...       # Required. Datadog API Key - https://app.datadoghq.com/account/settings#api
-ALLOWED_APPS=my-app,..    # Required. Comma seperated list of app names
-<APP-NAME>_PASSWORD=..    # Required. One per allowed app where <APP-NAME> corresponds to an app name from ALLOWED_APPS
-<APP-NAME>_TAGS=mytag,..  # Optional. Comma seperated list of default tags for each app
-<APP-NAME>_PREFIX=..      # Optional. String to be prepended to all metrics from a given app
+DATADOG_API_KEY=...       # Required if STATSD_URL is not set. Datadog API Key - https://app.datadoghq.com/account/settings#api
+BASIC_AUTH_USERNAME=...   # Required. Basic auth username to access drain.
+BASIC_AUTH_USERNAME=...   # Required. Basic auth password to access drain.
 DATADOG_DRAIN_DEBUG=..    # Optional. If DEBUG is set, a lot of stuff will be logged :)
 EXCLUDED_TAGS: path,host  # Optional. Recommended to solve problem with tags limit (1000)
 ```
-Note that the capitalized `<APP-NAME>` and `<YOUR-APP-SLUG>` appearing above indicate that your application name and slug should also be in full caps. For example, to set the password for an application named `my-app`, you would need to specify `heroku config:set ALLOWED_APPS=my-app MY-APP_PASSWORD=example_password`
-
 The rationale for `EXCLUDED_TAGS` is that the `path=` tag in Heroku logs includes the full HTTP path - including, for instance, query parameters. This makes very easy to swarm Datadog with numerous distinct tag/value pairs; and Datadog has a hard limit of 1000 such distinct pairs. When the limit is breached, they blacklist the entire metric.
 
 ## Heroku settings
@@ -94,7 +87,7 @@ app web.1 - info: responseLogger: metric#tag#route=/parser metric#request_id=117
 ```
 We support:
 
- * `metric#` and `sample#` for gauges 
+ * `metric#` and `sample#` for gauges
  * `metric#tag` for tags.
  * `count#` for counter increments
  * `measure#` for histograms
